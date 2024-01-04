@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Composition;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using ArchiSteamFarm.Core;
@@ -14,42 +16,55 @@ using Newtonsoft.Json.Linq;
 namespace AutoClaimStickers;
 
 [Export(typeof(IPlugin))]
-internal sealed class AutoClaimStickers : IPlugin, IASF {
+internal sealed class AutoClaimStickers : IPlugin, IASF, IDisposable {
 	public string Name => nameof(AutoClaimStickers);
 	public Version Version => typeof(AutoClaimStickers).Assembly.GetName().Version ?? throw new InvalidOperationException(nameof(Version));
 	private static Uri SteamApiURL => new("https://api.steampowered.com");
 	private static Uri RefererURL => new(ArchiWebHandler.SteamStoreURL, "/category/casual");
 	private ushort Interval = 360; // 6 * 60
-	private static readonly Timer AutoClaimTimer = new(OnAutoClaimTimer);
+	private ImmutableHashSet<string> Blacklist = [];
+	private Timer? AutoClaimTimer;
 	private static readonly SemaphoreSlim AutoClaimSemaphore = new(1, 1);
 	private static readonly SemaphoreSlim BotSemaphore = new(3, 3);
-	public Task OnLoaded() => Task.CompletedTask;
 
+	public Task OnLoaded() {
+		AutoClaimTimer = new(OnAutoClaimTimer);
+		return Task.CompletedTask;
+	}
 	public Task OnASFInit(IReadOnlyDictionary<string, JToken>? additionalConfigProperties = null) {
 		if (additionalConfigProperties == null) {
 			return Task.CompletedTask;
 		}
+		if (AutoClaimTimer == null) {
+			throw new InvalidOperationException(nameof(AutoClaimTimer));
+		}
 		foreach ((string configProperty, JToken configValue) in additionalConfigProperties) {
 			switch (configProperty) {
 				case $"{nameof(AutoClaimStickers)}{nameof(Interval)}" when configValue.Type == JTokenType.Integer:
-					Interval = configValue.Value<ushort>();
+					lock (AutoClaimSemaphore) {
+						Interval = configValue.Value<ushort>();
+					}
+					break;
+				case $"{nameof(AutoClaimStickers)}{nameof(Blacklist)}" when configValue.Type == JTokenType.Array:
+					JArray? array = configValue.Value<JArray>();
+					if (array != null) {
+						lock (Blacklist) {
+							Blacklist = array.ToObject<ImmutableHashSet<string>>() ?? [];
+						}
+					}
 					break;
 				default:
 					break;
 			}
 		}
-		if (Interval != 0) {
-			lock (AutoClaimSemaphore) {
-				_ = AutoClaimTimer.Change(TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(Interval));
-			}
-		} else {
-			lock (AutoClaimSemaphore) {
-				_ = AutoClaimTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
-			}
+		lock (AutoClaimSemaphore) {
+			_ = Interval != 0
+				? AutoClaimTimer.Change(TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(Interval))
+				: AutoClaimTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
 		}
 		return Task.CompletedTask;
 	}
-	private static async Task AutoClaim() {
+	private async Task AutoClaim() {
 		if (!await AutoClaimSemaphore.WaitAsync(0).ConfigureAwait(false)) {
 			return;
 		}
@@ -61,6 +76,11 @@ internal sealed class AutoClaimStickers : IPlugin, IASF {
 			List<Task> tasks = [];
 			foreach (Bot bot in bots) {
 				if (bot.IsConnectedAndLoggedOn) {
+					lock (Blacklist) {
+						if (Blacklist.Any(item => item.Equals(bot.BotName, StringComparison.OrdinalIgnoreCase))) {
+							continue;
+						}
+					}
 					tasks.Add(Task.Run(async () => {
 						await BotSemaphore.WaitAsync().ConfigureAwait(false);
 						try {
@@ -109,5 +129,6 @@ internal sealed class AutoClaimStickers : IPlugin, IASF {
 		ClaimItemData? result = response.Content;
 		return (result?.Response?.CommunityItemId > 0, result?.Response);
 	}
-	private static async void OnAutoClaimTimer(object? state = null) => await AutoClaim().ConfigureAwait(false);
+	private async void OnAutoClaimTimer(object? state = null) => await AutoClaim().ConfigureAwait(false);
+	public void Dispose() => AutoClaimTimer?.Dispose();
 }
