@@ -97,8 +97,8 @@ internal sealed class AutoClaimStickers : IPlugin, IASF, IDisposable {
 		}
 	}
 	private static async Task ClaimItemTask(Bot bot) {
-		(bool success, string? token) = await bot.ArchiWebHandler.CachedAccessToken.GetValue().ConfigureAwait(false);
-		if (!success || string.IsNullOrWhiteSpace(token)) {
+		string? token = bot.AccessToken;
+		if (string.IsNullOrWhiteSpace(token)) {
 			ASF.ArchiLogger.LogGenericWarning($"[{bot.BotName}] Missing token.");
 			return;
 		}
@@ -106,7 +106,7 @@ internal sealed class AutoClaimStickers : IPlugin, IASF, IDisposable {
 			ASF.ArchiLogger.LogGenericInfo($"[{bot.BotName}] No reward to claim.");
 			return;
 		}
-		(success, ClaimItemResponse? response) = await ClaimItem(bot, token).ConfigureAwait(false);
+		(bool success, ClaimItemResponse? response) = await ClaimItem(bot, token).ConfigureAwait(false);
 		if (success) {
 			CommunityItemData? rewardItemData = response!.RewardItem?.community_item_data;
 			ASF.ArchiLogger.LogGenericInfo($"[{bot.BotName}] Claim success! ItemId: {response.CommunityItemId}{(rewardItemData == null ? "" : $"({rewardItemData.item_name})")}");
@@ -121,8 +121,7 @@ internal sealed class AutoClaimStickers : IPlugin, IASF, IDisposable {
 	}
 	private static async Task<(bool success, ClaimItemResponse? response)> ClaimItem(Bot bot, string token) {
 		Uri uri = new(SteamApiURL, $"/ISaleItemRewardsService/ClaimItem/v1?access_token={token}");
-		Dictionary<string, string> data = new(0, StringComparer.Ordinal);
-		ObjectResponse<ClaimItemData>? response = await bot.ArchiWebHandler.UrlPostToJsonObjectWithSession<ClaimItemData>(uri, data: data, referer: RefererURL, session: ArchiWebHandler.ESession.None).ConfigureAwait(false);
+		ObjectResponse<ClaimItemData>? response = await bot.ArchiWebHandler.UrlPostToJsonObjectWithSession<ClaimItemData>(uri, data: null, referer: RefererURL, session: ArchiWebHandler.ESession.None).ConfigureAwait(false);
 		if (response == null || !response.StatusCode.IsSuccessCode()) {
 			return (false, response?.Content?.Response);
 		}
