@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<OutputType>Library</OutputType>
-		<Version>1.0.1.2</Version>
 	</PropertyGroup>
 
 	<ItemGroup>
