@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Composition;
 using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using ArchiSteamFarm.Core;
@@ -10,8 +12,6 @@ using ArchiSteamFarm.Plugins.Interfaces;
 using ArchiSteamFarm.Steam;
 using ArchiSteamFarm.Steam.Integration;
 using ArchiSteamFarm.Web.Responses;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
 namespace AutoClaimStickers;
 
@@ -26,31 +26,37 @@ internal sealed class AutoClaimStickers : IPlugin, IASF, IDisposable {
 	private Timer? AutoClaimTimer;
 	private static readonly SemaphoreSlim AutoClaimSemaphore = new(1, 1);
 	private static readonly SemaphoreSlim BotSemaphore = new(3, 3);
+	private static readonly JsonSerializerOptions SerializerOptions = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
 
 	public Task OnLoaded() {
 		AutoClaimTimer = new(OnAutoClaimTimer);
 		return Task.CompletedTask;
 	}
-	public Task OnASFInit(IReadOnlyDictionary<string, JToken>? additionalConfigProperties = null) {
+	public Task OnASFInit(IReadOnlyDictionary<string, JsonElement>? additionalConfigProperties = null) {
 		if (additionalConfigProperties == null) {
 			return Task.CompletedTask;
 		}
 		if (AutoClaimTimer == null) {
 			throw new InvalidOperationException(nameof(AutoClaimTimer));
 		}
-		foreach ((string configProperty, JToken configValue) in additionalConfigProperties) {
+		foreach ((string configProperty, JsonElement configValue) in additionalConfigProperties) {
 			switch (configProperty) {
-				case $"{nameof(AutoClaimStickers)}{nameof(Interval)}" when configValue.Type == JTokenType.Integer:
-					lock (AutoClaimSemaphore) {
-						Interval = configValue.Value<ushort>();
+				case $"{nameof(AutoClaimStickers)}{nameof(Interval)}" when configValue.ValueKind == JsonValueKind.Number:
+					if (configValue.TryGetUInt16(out ushort iterval)) {
+						lock (AutoClaimSemaphore) {
+							Interval = iterval;
+						}
 					}
 					break;
-				case $"{nameof(AutoClaimStickers)}{nameof(Blacklist)}" when configValue.Type == JTokenType.Array:
-					JArray? array = configValue.Value<JArray>();
-					if (array != null) {
+				case $"{nameof(AutoClaimStickers)}{nameof(Blacklist)}" when configValue.ValueKind == JsonValueKind.Array:
+					ImmutableHashSet<string>? blackList = null;
+					try {
+						blackList = configValue.EnumerateArray().Select(item => item.GetString() ?? string.Empty).Where(item => !string.IsNullOrWhiteSpace(item)).ToImmutableHashSet();
 						lock (Blacklist) {
-							Blacklist = array.ToObject<ImmutableHashSet<string>>() ?? [];
+							Blacklist = blackList;
 						}
+					} catch (Exception) {
+						ASF.ArchiLogger.LogGenericWarning($"Invalid config property: {configProperty}");
 					}
 					break;
 				default:
@@ -111,7 +117,7 @@ internal sealed class AutoClaimStickers : IPlugin, IASF, IDisposable {
 			CommunityItemData? rewardItemData = response!.RewardItem?.community_item_data;
 			ASF.ArchiLogger.LogGenericInfo($"[{bot.BotName}] Claim success! ItemId: {response.CommunityItemId}{(rewardItemData == null ? "" : $"({rewardItemData.item_name})")}");
 		} else {
-			ASF.ArchiLogger.LogGenericWarning($"[{bot.BotName}] Claim failed! Response: {JsonConvert.SerializeObject(response, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore })}");
+			ASF.ArchiLogger.LogGenericWarning($"[{bot.BotName}] Claim failed! Response: {JsonSerializer.Serialize(response, SerializerOptions)}");
 		}
 	}
 	private static async Task<bool> CanClaimItem(Bot bot, string token) {

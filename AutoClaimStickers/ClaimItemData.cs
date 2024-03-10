@@ -1,57 +1,57 @@
-using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
 namespace AutoClaimStickers;
+
 #pragma warning disable CA1812
 internal sealed record CanClaimItemData {
-	[JsonProperty("response", Required = Required.Always)]
-	public CanClaimItemResponse? Response { get; set; }
+	[JsonPropertyName("response"), JsonRequired]
+	public CanClaimItemResponse? Response { get; init; }
 }
 internal sealed record CanClaimItemResponse {
-	[JsonProperty("can_claim")]
-	public bool? CanClaim { get; set; }
-	[JsonProperty("next_claim_time")]
-	public int? NextClaimTime { get; set; }
-	[JsonProperty("reward_item")]
-	public RewardItem? RewardItem { get; set; }
+	[JsonPropertyName("can_claim")]
+	public bool? CanClaim { get; init; }
+	[JsonPropertyName("next_claim_time")]
+	public int? NextClaimTime { get; init; }
+	[JsonPropertyName("reward_item")]
+	public RewardItem? RewardItem { get; init; }
 }
 internal sealed record ClaimItemData {
-	[JsonProperty("response", Required = Required.Always)]
-	public ClaimItemResponse? Response { get; set; }
+	[JsonPropertyName("response"), JsonRequired]
+	public ClaimItemResponse? Response { get; init; }
 }
 internal sealed record ClaimItemResponse {
-	[JsonProperty("communityitemid")]
-	public long? CommunityItemId { get; set; }
-	[JsonProperty("next_claim_time")]
-	public int? NextClaimTime { get; set; }
-	[JsonProperty("reward_item")]
-	public RewardItem? RewardItem { get; set; }
+	[JsonPropertyName("communityitemid")]
+	public long? CommunityItemId { get; init; }
+	[JsonPropertyName("next_claim_time")]
+	public int? NextClaimTime { get; init; }
+	[JsonPropertyName("reward_item")]
+	public RewardItem? RewardItem { get; init; }
 }
 #pragma warning disable IDE1006
 internal sealed record RewardItem {
-	public int? appid { get; set; }
-	public int? defid { get; set; }
-	public int? type { get; set; }
-	public int? community_item_class { get; set; }
-	public int? community_item_type { get; set; }
-	public string? point_cost { get; set; }
-	public int? timestamp_created { get; set; }
-	public int? timestamp_updated { get; set; }
-	public int? timestamp_available { get; set; }
-	public int? timestamp_available_end { get; set; }
-	public string? quantity { get; set; }
-	public string? internal_description { get; set; }
-	public bool? active { get; set; }
-	public CommunityItemData? community_item_data { get; set; }
-	public int? usable_duration { get; set; }
-	public int? bundle_discount { get; set; }
+	public int? appid { get; init; }
+	public int? defid { get; init; }
+	public int? type { get; init; }
+	public int? community_item_class { get; init; }
+	public int? community_item_type { get; init; }
+	public string? point_cost { get; init; }
+	public int? timestamp_created { get; init; }
+	public int? timestamp_updated { get; init; }
+	public int? timestamp_available { get; init; }
+	public int? timestamp_available_end { get; init; }
+	public string? quantity { get; init; }
+	public string? internal_description { get; init; }
+	public bool? active { get; init; }
+	public CommunityItemData? community_item_data { get; init; }
+	public int? usable_duration { get; init; }
+	public int? bundle_discount { get; init; }
 }
 internal sealed record CommunityItemData {
-	public string? item_name { get; set; }
-	public string? item_title { get; set; }
-	public string? item_description { get; set; }
-	public string? item_image_small { get; set; }
-	public string? item_image_large { get; set; }
-	public bool? animated { get; set; }
+	public string? item_name { get; init; }
+	public string? item_title { get; init; }
+	public string? item_description { get; init; }
+	public string? item_image_small { get; init; }
+	public string? item_image_large { get; init; }
+	public bool? animated { get; init; }
 }
-#pragma warning restore IDE1006
 #pragma warning restore CA1812
