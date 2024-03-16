@@ -114,8 +114,8 @@ internal sealed class AutoClaimStickers : IPlugin, IASF, IDisposable {
 		}
 		(bool success, ClaimItemResponse? response) = await ClaimItem(bot, token).ConfigureAwait(false);
 		if (success) {
-			CommunityItemData? rewardItemData = response!.RewardItem?.community_item_data;
-			ASF.ArchiLogger.LogGenericInfo($"[{bot.BotName}] Claim success! ItemId: {response.CommunityItemId}{(rewardItemData == null ? "" : $"({rewardItemData.item_name})")}");
+			CommunityItem? rewardItemData = response!.RewardItem?.CommunityItemData;
+			ASF.ArchiLogger.LogGenericInfo($"[{bot.BotName}] Claim success! ItemId: {response.CommunityItemId}{(rewardItemData == null ? "" : $"({rewardItemData.ItemName})")}");
 		} else {
 			ASF.ArchiLogger.LogGenericWarning($"[{bot.BotName}] Claim failed! Response: {JsonSerializer.Serialize(response, SerializerOptions)}");
 		}
@@ -132,7 +132,7 @@ internal sealed class AutoClaimStickers : IPlugin, IASF, IDisposable {
 			return (false, response?.Content?.Response);
 		}
 		ClaimItemData? result = response.Content;
-		return (result?.Response?.CommunityItemId > 0, result?.Response);
+		return (!string.IsNullOrWhiteSpace(result?.Response?.CommunityItemId), result?.Response);
 	}
 	private async void OnAutoClaimTimer(object? state = null) => await AutoClaim().ConfigureAwait(false);
 	public void Dispose() => AutoClaimTimer?.Dispose();

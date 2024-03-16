@@ -11,7 +11,7 @@ internal sealed record CanClaimItemResponse {
 	[JsonPropertyName("can_claim")]
 	public bool? CanClaim { get; init; }
 	[JsonPropertyName("next_claim_time")]
-	public int? NextClaimTime { get; init; }
+	public uint? NextClaimTime { get; init; }
 	[JsonPropertyName("reward_item")]
 	public RewardItem? RewardItem { get; init; }
 }
@@ -21,37 +21,58 @@ internal sealed record ClaimItemData {
 }
 internal sealed record ClaimItemResponse {
 	[JsonPropertyName("communityitemid")]
-	public long? CommunityItemId { get; init; }
+	public string? CommunityItemId { get; init; }
 	[JsonPropertyName("next_claim_time")]
-	public int? NextClaimTime { get; init; }
+	public uint? NextClaimTime { get; init; }
 	[JsonPropertyName("reward_item")]
 	public RewardItem? RewardItem { get; init; }
 }
-#pragma warning disable IDE1006
 internal sealed record RewardItem {
-	public int? appid { get; init; }
-	public int? defid { get; init; }
-	public int? type { get; init; }
-	public int? community_item_class { get; init; }
-	public int? community_item_type { get; init; }
-	public string? point_cost { get; init; }
-	public int? timestamp_created { get; init; }
-	public int? timestamp_updated { get; init; }
-	public int? timestamp_available { get; init; }
-	public int? timestamp_available_end { get; init; }
-	public string? quantity { get; init; }
-	public string? internal_description { get; init; }
-	public bool? active { get; init; }
-	public CommunityItemData? community_item_data { get; init; }
-	public int? usable_duration { get; init; }
-	public int? bundle_discount { get; init; }
+	[JsonPropertyName("appid")]
+	public int? AppId { get; init; }
+	[JsonPropertyName("defid")]
+	public int? DefId { get; init; }
+	[JsonPropertyName("type")]
+	public int? Type { get; init; }
+	[JsonPropertyName("community_item_class")]
+	public int? CommunityItemClass { get; init; }
+	[JsonPropertyName("community_item_type")]
+	public int? CommunityItemType { get; init; }
+	[JsonPropertyName("point_cost")]
+	public string? PointCost { get; init; }
+	[JsonPropertyName("timestamp_created")]
+	public uint? TimestampCreated { get; init; }
+	[JsonPropertyName("timestamp_updated")]
+	public uint? TimestampUpdated { get; init; }
+	[JsonPropertyName("timestamp_available")]
+	public uint? TimestampAvailable { get; init; }
+	[JsonPropertyName("timestamp_available_end")]
+	public uint? TimestampAvailableEnd { get; init; }
+	[JsonPropertyName("quantity")]
+	public string? Quantity { get; init; }
+	[JsonPropertyName("internal_description")]
+	public string? InternalDescription { get; init; }
+	[JsonPropertyName("active")]
+	public bool? Active { get; init; }
+	[JsonPropertyName("community_item_data")]
+	public CommunityItem? CommunityItemData { get; init; }
+	[JsonPropertyName("usable_duration")]
+	public int? UsableDuration { get; init; }
+	[JsonPropertyName("bundle_discount")]
+	public int? BundleDiscount { get; init; }
 }
-internal sealed record CommunityItemData {
-	public string? item_name { get; init; }
-	public string? item_title { get; init; }
-	public string? item_description { get; init; }
-	public string? item_image_small { get; init; }
-	public string? item_image_large { get; init; }
-	public bool? animated { get; init; }
+internal sealed record CommunityItem {
+	[JsonPropertyName("item_name")]
+	public string? ItemName { get; init; }
+	[JsonPropertyName("item_title")]
+	public string? ItemTitle { get; init; }
+	[JsonPropertyName("item_description")]
+	public string? ItemDescription { get; init; }
+	[JsonPropertyName("item_image_small")]
+	public string? ItemImageSmall { get; init; }
+	[JsonPropertyName("item_image_large")]
+	public string? ItemImageLarge { get; init; }
+	[JsonPropertyName("animated")]
+	public bool? Animated { get; init; }
 }
 #pragma warning restore CA1812
