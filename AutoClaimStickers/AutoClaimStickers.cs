@@ -8,6 +8,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using ArchiSteamFarm.Core;
+using ArchiSteamFarm.Localization;
 using ArchiSteamFarm.Plugins.Interfaces;
 using ArchiSteamFarm.Steam;
 using ArchiSteamFarm.Steam.Integration;
@@ -33,34 +34,33 @@ internal sealed class AutoClaimStickers : IPlugin, IASF, IDisposable {
 		return Task.CompletedTask;
 	}
 	public Task OnASFInit(IReadOnlyDictionary<string, JsonElement>? additionalConfigProperties = null) {
-		if (additionalConfigProperties == null) {
-			return Task.CompletedTask;
-		}
 		if (AutoClaimTimer == null) {
 			throw new InvalidOperationException(nameof(AutoClaimTimer));
 		}
-		foreach ((string configProperty, JsonElement configValue) in additionalConfigProperties) {
-			switch (configProperty) {
-				case $"{nameof(AutoClaimStickers)}{nameof(Interval)}" when configValue.ValueKind == JsonValueKind.Number:
-					if (configValue.TryGetUInt16(out ushort iterval)) {
-						lock (AutoClaimSemaphore) {
-							Interval = iterval;
+		if (additionalConfigProperties != null) {
+			foreach ((string configProperty, JsonElement configValue) in additionalConfigProperties) {
+				switch (configProperty) {
+					case $"{nameof(AutoClaimStickers)}{nameof(Interval)}" when configValue.ValueKind == JsonValueKind.Number:
+						if (configValue.TryGetUInt16(out ushort iterval)) {
+							lock (AutoClaimSemaphore) {
+								Interval = iterval;
+							}
 						}
-					}
-					break;
-				case $"{nameof(AutoClaimStickers)}{nameof(Blacklist)}" when configValue.ValueKind == JsonValueKind.Array:
-					ImmutableHashSet<string>? blackList = null;
-					try {
-						blackList = configValue.EnumerateArray().Select(item => item.GetString() ?? string.Empty).Where(item => !string.IsNullOrWhiteSpace(item)).ToImmutableHashSet();
-						lock (Blacklist) {
-							Blacklist = blackList;
+						break;
+					case $"{nameof(AutoClaimStickers)}{nameof(Blacklist)}" when configValue.ValueKind == JsonValueKind.Array:
+						ImmutableHashSet<string>? blackList = null;
+						try {
+							blackList = configValue.EnumerateArray().Select(item => item.GetString() ?? string.Empty).Where(item => !string.IsNullOrWhiteSpace(item)).ToImmutableHashSet();
+							lock (Blacklist) {
+								Blacklist = blackList;
+							}
+						} catch (Exception) {
+							ASF.ArchiLogger.LogGenericWarning($"Invalid config property: {configProperty}");
 						}
-					} catch (Exception) {
-						ASF.ArchiLogger.LogGenericWarning($"Invalid config property: {configProperty}");
-					}
-					break;
-				default:
-					break;
+						break;
+					default:
+						break;
+				}
 			}
 		}
 		lock (AutoClaimSemaphore) {
@@ -72,11 +72,13 @@ internal sealed class AutoClaimStickers : IPlugin, IASF, IDisposable {
 	}
 	private async Task AutoClaim() {
 		if (!await AutoClaimSemaphore.WaitAsync(0).ConfigureAwait(false)) {
+			ASF.ArchiLogger.LogGenericWarning($"[{nameof(AutoClaimStickers)}] AutoClaim task is already running!");
 			return;
 		}
 		try {
 			HashSet<Bot>? bots = Bot.GetBots("ASF");
-			if (bots == null) {
+			if (bots == null || bots.Count == 0) {
+				ASF.ArchiLogger.LogGenericWarning($"[{nameof(AutoClaimStickers)}] Couldn't find any bot!");
 				return;
 			}
 			List<Task> tasks = [];
@@ -95,6 +97,8 @@ internal sealed class AutoClaimStickers : IPlugin, IASF, IDisposable {
 							_ = BotSemaphore.Release();
 						}
 					}));
+				} else {
+					ASF.ArchiLogger.LogGenericWarning($"[{bot.BotName}] {Strings.BotNotConnected}");
 				}
 			}
 			await Task.WhenAll([.. tasks]).ConfigureAwait(false);
