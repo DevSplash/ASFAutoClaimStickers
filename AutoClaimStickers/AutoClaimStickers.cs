@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Composition;
+using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using ArchiSteamFarm.Core;
@@ -12,13 +14,16 @@ using ArchiSteamFarm.Localization;
 using ArchiSteamFarm.Plugins.Interfaces;
 using ArchiSteamFarm.Steam;
 using ArchiSteamFarm.Steam.Integration;
+using ArchiSteamFarm.Web.GitHub;
+using ArchiSteamFarm.Web.GitHub.Data;
 using ArchiSteamFarm.Web.Responses;
 
 namespace AutoClaimStickers;
 
 [Export(typeof(IPlugin))]
-internal sealed class AutoClaimStickers : IPlugin, IASF, IDisposable {
+internal sealed partial class AutoClaimStickers : IASF, IGitHubPluginUpdates, IDisposable {
 	public string Name => nameof(AutoClaimStickers);
+	public string RepositoryName => "DevSplash/ASFAutoClaimStickers";
 	public Version Version => typeof(AutoClaimStickers).Assembly.GetName().Version ?? throw new InvalidOperationException(nameof(Version));
 	private static Uri SteamApiURL => new("https://api.steampowered.com");
 	private static Uri RefererURL => new(ArchiWebHandler.SteamStoreURL, "/category/casual");
@@ -28,6 +33,10 @@ internal sealed class AutoClaimStickers : IPlugin, IASF, IDisposable {
 	private static readonly SemaphoreSlim AutoClaimSemaphore = new(1, 1);
 	private static readonly SemaphoreSlim BotSemaphore = new(3, 3);
 	private static readonly JsonSerializerOptions SerializerOptions = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+	[GeneratedRegex(@"\[ASFMinimumVersion\]:(\d+\.\d+\.\d+\.\d+)")]
+	private static partial Regex ASFMinimumVersionRegex();
+	[GeneratedRegex(@"\[ASFMaximumVersion\]:(\d+\.\d+\.\d+\.\d+)")]
+	private static partial Regex ASFMaximumVersionRegex();
 
 	public Task OnLoaded() {
 		AutoClaimTimer = new(OnAutoClaimTimer);
@@ -139,5 +148,53 @@ internal sealed class AutoClaimStickers : IPlugin, IASF, IDisposable {
 		return (!string.IsNullOrWhiteSpace(result?.Response?.CommunityItemId), result?.Response);
 	}
 	private async void OnAutoClaimTimer(object? state = null) => await AutoClaim().ConfigureAwait(false);
+	public async Task<Uri?> GetTargetReleaseURL(Version asfVersion, string asfVariant, bool asfUpdate, bool stable, bool forced) {
+		ArgumentNullException.ThrowIfNull(asfVersion);
+		ArgumentException.ThrowIfNullOrEmpty(asfVariant);
+		if (string.IsNullOrEmpty(RepositoryName)) {
+			ASF.ArchiLogger.LogGenericError(string.Format(CultureInfo.CurrentCulture, Strings.WarningFailedWithError, nameof(RepositoryName)));
+			return null;
+		}
+		ImmutableList<ReleaseResponse>? releases = await GitHubService.GetReleases(RepositoryName, 100).ConfigureAwait(false);
+		if (releases == null) {
+			return null;
+		}
+		foreach (ReleaseResponse release in releases) {
+			if (!stable || !release.IsPreRelease) {
+				Version newVersion = new(release.Tag);
+				if (!forced) {
+					if (Version >= newVersion) {
+						continue;
+					}
+					Match match = ASFMinimumVersionRegex().Match(release.MarkdownBody);
+					if (!match.Success || match.Groups.Count != 2) {
+						continue;
+					}
+					Version minimumVersion = new(match.Groups[1].Value);
+					if (asfVersion < minimumVersion) {
+						continue;
+					}
+					match = ASFMaximumVersionRegex().Match(release.MarkdownBody);
+					if (match.Success && match.Groups.Count == 2) {
+						Version maximumVersion = new(match.Groups[1].Value);
+						if (asfVersion > maximumVersion) {
+							continue;
+						}
+					}
+				}
+				if (release.Assets.Count == 0) {
+					continue;
+				}
+				ReleaseAsset? asset = await ((IGitHubPluginUpdates) this).GetTargetReleaseAsset(asfVersion, asfVariant, newVersion, release.Assets).ConfigureAwait(false);
+				if ((asset == null) || !release.Assets.Contains(asset)) {
+					continue;
+				}
+				ASF.ArchiLogger.LogGenericInfo(string.Format(CultureInfo.CurrentCulture, Strings.PluginUpdateFound, Name, Version, newVersion));
+				return asset.DownloadURL;
+			}
+		}
+		ASF.ArchiLogger.LogGenericInfo($"No update available for {Name} plugin");
+		return null;
+	}
 	public void Dispose() => AutoClaimTimer?.Dispose();
 }
