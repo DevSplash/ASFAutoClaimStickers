@@ -1,4 +1,8 @@
 # ASFAutoClaimStickers
+![GitHub Downloads](https://img.shields.io/github/downloads/DevSplash/ASFAutoClaimStickers/total)
+![GitHub last commit](https://img.shields.io/github/last-commit/DevSplash/ASFAutoClaimStickers)
+![GitHub stars](https://img.shields.io/github/stars/DevSplash/ASFAutoClaimStickers)
+
 ArchiSteamFarm plugin for claiming stickers automatically.
 ## Config
 Plugin config is located in ASF.json: 
