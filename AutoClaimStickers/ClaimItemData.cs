@@ -1,8 +1,6 @@
 using System.Text.Json.Serialization;
 
 namespace AutoClaimStickers;
-
-#pragma warning disable CA1812
 internal sealed record CanClaimItemData {
 	[JsonPropertyName("response"), JsonRequired]
 	public CanClaimItemResponse? Response { get; init; }
@@ -75,4 +73,3 @@ internal sealed record CommunityItem {
 	[JsonPropertyName("animated")]
 	public bool? Animated { get; init; }
 }
-#pragma warning restore CA1812

@@ -1,15 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Composition;
 using System.Globalization;
 using System.Linq;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using ArchiSteamFarm.Core;
+using ArchiSteamFarm.Helpers.Json;
 using ArchiSteamFarm.Localization;
 using ArchiSteamFarm.Plugins.Interfaces;
 using ArchiSteamFarm.Steam;
@@ -17,22 +16,22 @@ using ArchiSteamFarm.Steam.Integration;
 using ArchiSteamFarm.Web.GitHub;
 using ArchiSteamFarm.Web.GitHub.Data;
 using ArchiSteamFarm.Web.Responses;
+using JetBrains.Annotations;
 
 namespace AutoClaimStickers;
 
-[Export(typeof(IPlugin))]
+[UsedImplicitly]
 internal sealed partial class AutoClaimStickers : IASF, IGitHubPluginUpdates, IDisposable {
 	public string Name => nameof(AutoClaimStickers);
 	public string RepositoryName => "DevSplash/ASFAutoClaimStickers";
 	public Version Version => typeof(AutoClaimStickers).Assembly.GetName().Version ?? throw new InvalidOperationException(nameof(Version));
 	private static Uri SteamApiURL => new("https://api.steampowered.com");
 	private static Uri RefererURL => new(ArchiWebHandler.SteamStoreURL, "/category/casual");
-	private ushort Interval = 360; // 6 * 60
+	private ushort Interval = 60 * 6;
 	private ImmutableHashSet<string> Blacklist = [];
 	private Timer? AutoClaimTimer;
 	private static readonly SemaphoreSlim AutoClaimSemaphore = new(1, 1);
 	private static readonly SemaphoreSlim BotSemaphore = new(3, 3);
-	private static readonly JsonSerializerOptions SerializerOptions = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
 	[GeneratedRegex(@"\[ASFMinimumVersion\]:(\d+\.\d+\.\d+\.\d+)")]
 	private static partial Regex ASFMinimumVersionRegex();
 	[GeneratedRegex(@"\[ASFMaximumVersion\]:(\d+\.\d+\.\d+\.\d+)")]
@@ -50,9 +49,9 @@ internal sealed partial class AutoClaimStickers : IASF, IGitHubPluginUpdates, ID
 			foreach ((string configProperty, JsonElement configValue) in additionalConfigProperties) {
 				switch (configProperty) {
 					case $"{nameof(AutoClaimStickers)}{nameof(Interval)}" when configValue.ValueKind == JsonValueKind.Number:
-						if (configValue.TryGetUInt16(out ushort iterval)) {
+						if (configValue.TryGetUInt16(out ushort interval)) {
 							lock (AutoClaimSemaphore) {
-								Interval = iterval;
+								Interval = interval;
 							}
 						}
 						break;
@@ -130,7 +129,7 @@ internal sealed partial class AutoClaimStickers : IASF, IGitHubPluginUpdates, ID
 			CommunityItem? rewardItemData = response!.RewardItem?.CommunityItemData;
 			ASF.ArchiLogger.LogGenericInfo($"[{bot.BotName}] Claim success! ItemId: {response.CommunityItemId}{(rewardItemData == null ? "" : $"({rewardItemData.ItemName})")}");
 		} else {
-			ASF.ArchiLogger.LogGenericWarning($"[{bot.BotName}] Claim failed! Response: {JsonSerializer.Serialize(response, SerializerOptions)}");
+			ASF.ArchiLogger.LogGenericWarning($"[{bot.BotName}] Claim failed! Response: {response.ToJsonText()}");
 		}
 	}
 	private static async Task<bool> CanClaimItem(Bot bot, string token) {
