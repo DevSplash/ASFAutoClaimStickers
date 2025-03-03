@@ -58,7 +58,7 @@ internal sealed partial class AutoClaimStickers : IASF, IGitHubPluginUpdates, ID
 					case $"{nameof(AutoClaimStickers)}{nameof(Blacklist)}" when configValue.ValueKind == JsonValueKind.Array:
 						ImmutableHashSet<string>? blackList = null;
 						try {
-							blackList = configValue.EnumerateArray().Select(item => item.GetString() ?? string.Empty).Where(item => !string.IsNullOrWhiteSpace(item)).ToImmutableHashSet();
+							blackList = [.. configValue.EnumerateArray().Select(item => item.GetString() ?? string.Empty).Where(item => !string.IsNullOrWhiteSpace(item))];
 							lock (Blacklist) {
 								Blacklist = blackList;
 							}
@@ -72,9 +72,11 @@ internal sealed partial class AutoClaimStickers : IASF, IGitHubPluginUpdates, ID
 			}
 		}
 		lock (AutoClaimSemaphore) {
-			_ = Interval != 0
-				? AutoClaimTimer.Change(TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(Interval))
-				: AutoClaimTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+			if (Interval != 0) {
+				AutoClaimTimer.Change(TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(Interval));
+			} else {
+				AutoClaimTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+			}
 		}
 		return Task.CompletedTask;
 	}
@@ -102,7 +104,7 @@ internal sealed partial class AutoClaimStickers : IASF, IGitHubPluginUpdates, ID
 						try {
 							await ClaimItemTask(bot).ConfigureAwait(false);
 						} finally {
-							_ = BotSemaphore.Release();
+							BotSemaphore.Release();
 						}
 					}));
 				} else {
@@ -111,7 +113,7 @@ internal sealed partial class AutoClaimStickers : IASF, IGitHubPluginUpdates, ID
 			}
 			await Task.WhenAll([.. tasks]).ConfigureAwait(false);
 		} finally {
-			_ = AutoClaimSemaphore.Release();
+			AutoClaimSemaphore.Release();
 		}
 	}
 	private static async Task ClaimItemTask(Bot bot) {

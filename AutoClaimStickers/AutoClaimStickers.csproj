@@ -2,8 +2,7 @@
 	<PropertyGroup>
 		<OutputType>Library</OutputType>
 		<TargetFramework>net9.0</TargetFramework>
-		<NoWarn>CA1812</NoWarn>
-		<Version>1.0.2.2</Version>
+		<NoWarn>CA1812, IDE0058</NoWarn>
 	</PropertyGroup>
 
 	<ItemGroup>
